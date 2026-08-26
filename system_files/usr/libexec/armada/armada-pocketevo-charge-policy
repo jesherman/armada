@@ -177,6 +177,8 @@ direct_session()
 	target=$((bat_v * 2 + 800000))
 	if test "$target" -lt 8800000; then target=8800000; fi
 	if test "$target" -gt 9200000; then target=9200000; fi
+	# Qualcomm accepts PPS requests only on the USB-PD 20 mV grid.
+	target=$((target / 20000 * 20000))
 
 	if ! printf '%s\n' "$target" > "$USB/voltage_now"; then
 		classify_control_failure control

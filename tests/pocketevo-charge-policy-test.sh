@@ -143,6 +143,19 @@ run_policy ARMADA_CHARGE_MAX_EVENTS=1 ARMADA_CHARGE_SAMPLE_HOOK="$BIN/endpoint-h
 [[ ! -e "$STATE/fault" ]] || fail 'normal endpoint was latched as a fault'
 assert_eq "$(<"$PSY/qcom-battmgr-usb/input_current_limit")" 3000000 'endpoint Qualcomm restore'
 
+# Initial PPS requests are quantized to the kernel-enforced 20 mV grid even
+# when battery telemetry is not itself step-aligned.
+setup_good
+writev "$PSY/battery/voltage_now" 4003123
+cat > "$BIN/pps-step-hook" <<EOF
+#!/bin/sh
+cat '$PSY/qcom-battmgr-usb/voltage_now' > '$WORK/requested-voltage'
+printf '90\n' > '$PSY/battery/capacity'
+EOF
+chmod +x "$BIN/pps-step-hook"
+run_policy ARMADA_CHARGE_MAX_EVENTS=1 ARMADA_CHARGE_SAMPLE_HOOK="$BIN/pps-step-hook" >/dev/null
+assert_eq "$(( $(<"$WORK/requested-voltage") % 20000 ))" 0 'PPS request step'
+
 # Read-to-clear electrical faults and pair-coherence failures remain latched
 # after successful pump cleanup; they cannot silently re-arm after 60 seconds.
 setup_good
