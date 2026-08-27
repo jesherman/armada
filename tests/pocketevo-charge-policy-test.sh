@@ -196,6 +196,9 @@ EOF
 chmod +x "$BIN/cable-cycle-hook"
 run_policy ARMADA_CHARGE_MAX_EVENTS=2 ARMADA_CHARGE_MAX_IDLE_LOOPS=1 \
 	ARMADA_CHARGE_SAMPLE_HOOK="$BIN/cable-cycle-hook" >/dev/null
+# Let the hook's delayed VBUS-removal writes finish before the temporary
+# power-supply tree is removed by the EXIT trap.
+sleep 0.2
 [[ ! -e "$STATE/fault" ]] || fail 'fault cleared before pump VBUS went absent'
 
 sh -n "$POLICY" "$CLEANUP"
