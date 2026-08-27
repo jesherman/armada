@@ -71,6 +71,20 @@ the guides there rather than instructions copied from older releases or posts.
 | Find help | [FAQ](https://armadaos.dev/troubleshooting/frequently-asked-questions/) · [Known issues](https://armadaos.dev/troubleshooting/known-issues/) |
 | Report a bug | [Github Issues](https://github.com/armada-os/armada/issues)
 
+### Pocket EVO direct charging
+
+The Pocket EVO's dual-pump 28 W charging policy is experimental and disabled
+by default. To opt in, create its marker and enable the service:
+
+```bash
+sudo install -d /etc/armada/experimental
+sudo touch /etc/armada/experimental/pocketevo-direct-charge
+sudo systemctl enable --now armada-pocketevo-charge-policy.service
+```
+
+An electrical, thermal, telemetry, or control fault disables both pumps and
+requires unplugging the charger before another direct-charge session.
+
 ## Development
 
 This repository assembles the Armada bootc image and its flashable disk images.
