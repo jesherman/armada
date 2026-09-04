@@ -3,6 +3,8 @@
 
 ARMADA_CANONICAL_REGISTRY="ghcr.io/armada-os/armada"
 ARMADA_LEGACY_REGISTRY="ghcr.io/virtudude/armada"
+# Fork channel: images staged via containers-storage by armada-fork-update track this repo.
+ARMADA_FORK_REGISTRY="ghcr.io/jesherman/armada"
 ARMADA_CHANNEL_STATE="/var/lib/armada/update-channel"
 ARMADA_CHANNELS="stable beta testing"
 ARMADA_OSTREE_REPO="/ostree/repo"
@@ -43,6 +45,7 @@ armada_registry_from_ref() {
     local r="$1"
     case "$r" in
         ostree-unverified-registry:*) r="${r#ostree-unverified-registry:}" ;;
+        ostree-unverified-image:containers-storage:*) r="${r#ostree-unverified-image:containers-storage:}" ;;
     esac
     r="${r##*://}"
     r="${r%%@*}"
@@ -57,6 +60,7 @@ armada_repository_from_ref() {
     local r
     case "$1" in
         ostree-unverified-registry:*) r="${1#ostree-unverified-registry:}" ;;
+        ostree-unverified-image:containers-storage:*) r="${1#ostree-unverified-image:containers-storage:}" ;;
         *docker://*) r="${1##*docker://}" ;;
         *) return 1 ;;
     esac
@@ -71,6 +75,7 @@ armada_steam_channels_apply() {
     local channel
     case "$1" in
         "$ARMADA_CANONICAL_REGISTRY"|"$ARMADA_LEGACY_REGISTRY") ;;
+        "$ARMADA_FORK_REGISTRY") ;;
         *) return 1 ;;
     esac
     for channel in ${ARMADA_CHANNELS}; do
