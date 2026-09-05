@@ -31,15 +31,19 @@ case "${1:-start}" in
   start)
     [ -f "${ROOTFS_SQSH}" ] || exit 0
     [ -f "${MESA_SQSH}" ] || exit 0
-    mkdir -p "${ROOTFS_MOUNT}" "${MESA_MOUNT}" "${RUN}/upper" "${RUN}/work"
+    mkdir -p "${ROOTFS_MOUNT}" "${MESA_MOUNT}"
 
     mount_ro "${ROOTFS_SQSH}" "${ROOTFS_MOUNT}" || rollback
     mount_ro "${MESA_SQSH}" "${MESA_MOUNT}" || rollback
-    # upperdir+workdir are REQUIRED on kernel 7.2.3: an upperdir-less ro overlay
-    # mounts "successfully" but lists empty (redirect_dir=on path). Upper/work
-    # live under /run, wiped each boot — this rootfs is rebuilt every boot anyway.
+    # Stage to plain dirs: an overlay whose lowerdirs are themselves squashfs
+    # mounts silently lists empty on kernel 7.2.3 (plain-dir lowerdirs work).
+    mkdir -p "${RUN}/payload" "${RUN}/lower" "${RUN}/upper" "${RUN}/work"
+    cp -a "${ROOTFS_MOUNT}/." "${RUN}/payload/"
+    cp -a "${MESA_MOUNT}/." "${RUN}/lower/"
+    umount_if_mounted "${MESA_MOUNT}"
+    umount_if_mounted "${ROOTFS_MOUNT}"
     mountpoint -q "${TARGET}" || mount -t overlay overlay \
-      -o "lowerdir=${MESA_MOUNT}:${ROOTFS_MOUNT},upperdir=${RUN}/upper,workdir=${RUN}/work" "${TARGET}" || rollback
+      -o "lowerdir=${RUN}/payload:${RUN}/lower,upperdir=${RUN}/upper,workdir=${RUN}/work" "${TARGET}" || rollback
     ;;
   stop)
     unmount_if_mounted "${TARGET}" || exit 1
