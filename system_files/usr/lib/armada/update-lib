@@ -119,7 +119,11 @@ armada_remote_info() {
     local registry="${2:-}"
     [[ -n "$registry" ]] || registry="$(armada_booted_registry)"
     [[ -n "$registry" ]] || registry="$ARMADA_CANONICAL_REGISTRY"
-    skopeo inspect "docker://${registry}:$1" 2>/dev/null | \
+    local authopts=()
+    if [ -r /etc/containers/auth.json ]; then
+        authopts=(--authfile /etc/containers/auth.json)
+    fi
+    skopeo inspect "${authopts[@]}" "docker://${registry}:$1" 2>/dev/null | \
         python3 -c '
 import json
 import subprocess
@@ -262,6 +266,15 @@ armada_desired_channel() {
 armada_update_target() {
     local ref="$1" booted repository desired
     booted="$(armada_tag_from_ref "$ref")"
+    # Fork digest-tag staging: updater stages localhost/armada-fork:<digest>.
+    # Treat it as the fork channel; identity comparison happens via digests in
+    # the check (bootc booted digest vs skopeo remote digest), not tags.
+    case "$(armada_repository_from_ref "$ref" 2>/dev/null || true)" in
+        localhost/armada-fork)
+            echo "$ARMADA_FORK_REGISTRY $(armada_desired_channel "${booted:-testing}")"
+            return 0
+            ;;
+    esac
     if repository="$(armada_repository_from_ref "$ref")"; then
         if [[ -z "$booted" ]]; then
             case "$repository" in
