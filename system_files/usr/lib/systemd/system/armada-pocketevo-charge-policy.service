@@ -1,6 +1,9 @@
 [Unit]
 Description=Experimental AYANEO Pocket EVO HL7139 direct-charge policy
 After=systemd-modules-load.service
+# ADSP/battery-manager must be up before the policy probes sysfs; the
+# watchdog starves otherwise on cold boots.
+ExecStartPre=/bin/sleep 45
 ConditionPathExists=/sys/class/power_supply/hl7139-master
 ConditionPathExists=/sys/class/power_supply/hl7139-slave
 ConditionPathExists=/etc/armada/experimental/pocketevo-direct-charge
@@ -11,7 +14,8 @@ NotifyAccess=all
 WatchdogSec=600s
 ExecStart=/usr/libexec/armada/armada-pocketevo-charge-policy
 ExecStopPost=/usr/libexec/armada/armada-pocketevo-charge-cleanup
-Restart=no
+Restart=on-failure
+RestartSec=30s
 TimeoutStopSec=10s
 RuntimeDirectory=armada-pocketevo-charge-policy
 RuntimeDirectoryPreserve=yes
