@@ -3,7 +3,6 @@ Description=Experimental AYANEO Pocket EVO HL7139 direct-charge policy
 After=systemd-modules-load.service
 # ADSP/battery-manager must be up before the policy probes sysfs; the
 # watchdog starves otherwise on cold boots.
-ExecStartPre=/bin/sleep 45
 ConditionPathExists=/sys/class/power_supply/hl7139-master
 ConditionPathExists=/sys/class/power_supply/hl7139-slave
 ConditionPathExists=/etc/armada/experimental/pocketevo-direct-charge
@@ -12,6 +11,11 @@ ConditionPathExists=/etc/armada/experimental/pocketevo-direct-charge
 Type=notify
 NotifyAccess=all
 WatchdogSec=600s
+# NOTE: ExecStartPre belongs in [Service], not [Unit] — the shipped
+# upstream unit had it in [Unit] where systemd silently ignores it
+# ("Unknown key 'ExecStartPre' in section [Unit]"), so the ADSP boot
+# delay never actually ran. Fixed here (fork carry 2026-09-06).
+ExecStartPre=/bin/sleep 45
 ExecStart=/usr/libexec/armada/armada-pocketevo-charge-policy
 ExecStopPost=/usr/libexec/armada/armada-pocketevo-charge-cleanup
 Restart=on-failure
