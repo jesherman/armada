@@ -1,6 +1,5 @@
-#!/usr/bin/env bash
+#!/bin/bash
 # Present the FEX x86 rootfs at /usr/share/guestos/fex-mesa, the OS-provided
-# path Steam's FEX compat tool hardcodes for the x86 Proton chain.
 set -u
 
 ROOTFS_SQSH=/usr/share/fex-emu/RootFS/ArchLinux.sqsh
@@ -10,6 +9,10 @@ RUN=/run/armada/guestos
 TARGET=/usr/share/guestos/fex-mesa
 ROOTFS_MOUNT=${RUN}/rootfs
 MESA_MOUNT=${RUN}/mesa
+# Disk-backed staging: the ArchLinux rootfs expands to ~3.1GB which OVERFLOWS
+# the /run tmpfs on 16GB devices. /var is on the big btrfs. upper/work stay in
+# /run (small CoW writes; rebuilt each boot along with the payload).
+STAGE=/var/armada/guestos
 
 mount_ro() {
   mountpoint -q "$2" || mount -t squashfs -o ro,loop "$1" "$2"
@@ -32,18 +35,20 @@ case "${1:-start}" in
     [ -f "${ROOTFS_SQSH}" ] || exit 0
     [ -f "${MESA_SQSH}" ] || exit 0
     mkdir -p "${ROOTFS_MOUNT}" "${MESA_MOUNT}"
+    mkdir -p "${STAGE}/payload" "${STAGE}/lower" "${RUN}/upper" "${RUN}/work"
 
     mount_ro "${ROOTFS_SQSH}" "${ROOTFS_MOUNT}" || rollback
     mount_ro "${MESA_SQSH}" "${MESA_MOUNT}" || rollback
     # Stage to plain dirs: an overlay whose lowerdirs are themselves squashfs
     # mounts silently lists empty on kernel 7.2.3 (plain-dir lowerdirs work).
-    mkdir -p "${RUN}/payload" "${RUN}/lower" "${RUN}/upper" "${RUN}/work"
-    cp -a "${ROOTFS_MOUNT}/." "${RUN}/payload/"
-    cp -a "${MESA_MOUNT}/." "${RUN}/lower/"
+    if [ ! -f "${STAGE}/payload/usr/lib/ld-linux-x86-64.so.2" ]; then
+      cp -a "${ROOTFS_MOUNT}/." "${STAGE}/payload/"
+      cp -a "${MESA_MOUNT}/." "${STAGE}/lower/"
+    fi
     umount_if_mounted "${MESA_MOUNT}"
     umount_if_mounted "${ROOTFS_MOUNT}"
     mountpoint -q "${TARGET}" || mount -t overlay overlay \
-      -o "lowerdir=${RUN}/payload:${RUN}/lower,upperdir=${RUN}/upper,workdir=${RUN}/work" "${TARGET}" || rollback
+      -o "lowerdir=${STAGE}/payload:${STAGE}/lower,upperdir=${RUN}/upper,workdir=${RUN}/work" "${TARGET}" || rollback
     ;;
   stop)
     unmount_if_mounted "${TARGET}" || exit 1
