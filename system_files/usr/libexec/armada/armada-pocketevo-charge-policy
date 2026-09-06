@@ -44,11 +44,8 @@ notify_status()
 notify_watchdog()
 {
 	command -v systemd-notify >/dev/null 2>&1 || return 0
-	# systemd 259 (Fedora 44) has NO --watchdog flag; the raw WATCHDOG=1
-	# variable form is the portable ping. The flag form fails with
-	# "unrecognized option" and the || true swallowed it — every ping was
-	# a no-op, so WatchdogSec=600 SIGABRT'd the policy mid-latch and
-	# mid-session (the "inconsistent charging" bug, proven 2026-09-06).
+	# systemd 259 dropped the --watchdog flag; the variable form is the
+	# portable ping (flag form fails silently, watchdog then SIGABRTs us).
 	systemd-notify WATCHDOG=1 >/dev/null 2>&1 || true
 }
 
@@ -298,16 +295,12 @@ direct_session()
 		fi
 		# Load sag: at pump start the adapter can sit up to ~1 V below the
 		# request while the pumps spool up; coherence between the usb rail
-		# and the pump VINs is what actually matters. Measured 2026-09-06:
-		# at the top of the ramp (10.2 V request, ~3 A) the adapter sags
-		# 1.22-1.25 V below the request (usb=8.94-8.97 V, pump VINs
-		# 8.87-9.08 V — all healthy) and the old 1.2 V low window tripped
-		# every session. 1.5 V low window covers the 10.5 V cap; a real
-		# cable pull still collapses the rail past the 5.4 V offline check.
+		# and the pump VINs is what actually matters. The battmgr usb
+		# readback lags under load, so no vs-request low window: a real
+		# pull collapses the rail past the 5.4 V offline check instead.
 		if test "$(absdiff "$master_v" "$slave_v")" -gt 250000 ||
 		   test "$(absdiff "$usb_v" "$master_v")" -gt 800000 ||
 		   test "$(absdiff "$usb_v" "$slave_v")" -gt 800000 ||
-		   test "$usb_v" -lt $((target - 1500000)) ||
 		   test "$usb_v" -gt $((target + 500000)); then
 			set_result telemetry "guard: incoherent VBUS request=${target} usb=${usb_v} master=${master_v} slave=${slave_v}uV"
 			return 1
